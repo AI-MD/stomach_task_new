@@ -2,11 +2,8 @@
 
 sqlite3* DBProc::dbConnection()
 {
-   
     return db;
 }
-
-
 
 void DBProc::createtable()
 {
@@ -69,7 +66,7 @@ void DBProc::update(std::string sql)
     // compile sql statement to binary
 
     rc = sqlite3_exec(db, sql.c_str(), 0, 0, &err_msg);
-   
+  
     errMsg();
    
 }
@@ -94,6 +91,7 @@ void DBProc::errMsg()
 
     }
 }
+
 void DBProc::select_errMsg()
 {
     if (ret_code != SQLITE_DONE) {
@@ -105,8 +103,6 @@ void DBProc::select_errMsg()
         sqlite3_close(db);
     }
 }
-
-
 
 void  DBProc::dbclose()
 {

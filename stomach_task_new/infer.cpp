@@ -15,10 +15,11 @@ Infer::Infer(bool isGPU, const wchar_t* model_path, int deviceID)
 	OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, 0);
 	
 	session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+
 	
 	session = std::shared_ptr<Ort::Session>(new Ort::Session(*env, model_path, session_options));
-	
-	//std::cout << "Model Read Success" << std::endl;
+
+	std::cout << "Model Read Success" << std::endl;
 }
 
 void Infer::SetInputOutputSet()
@@ -32,9 +33,11 @@ void Infer::SetInputOutputSet()
 	Ort::TypeInfo type_info = session->GetInputTypeInfo(0);
 	auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
 	input_node_dims = tensor_info.GetShape();
-
-	output_node_names.push_back(session->GetOutputName(1, allocator));
-
+	
+	
+	output_node_names.push_back(session->GetOutputName(0, allocator));
+	
+	
 }
 
 void Infer::PrintInputNode()
@@ -135,9 +138,9 @@ std::vector<float> Infer::Mat2Vec(cv::Mat& img, bool isColor, bool isPytorch)
 		std::vector<cv::Mat> split;
 		cv::split(img_float, split);
 
+		input_tensor_values.insert(std::end(input_tensor_values), (float*)split[2].data, (float*)split[2].data + split[2].total());
 		input_tensor_values.insert(std::end(input_tensor_values), (float*)split[0].data, (float*)split[0].data + split[0].total());
 		input_tensor_values.insert(std::end(input_tensor_values), (float*)split[1].data, (float*)split[1].data + split[1].total());
-		input_tensor_values.insert(std::end(input_tensor_values), (float*)split[2].data, (float*)split[2].data + split[2].total());
 	}
 	else
 	{
@@ -197,7 +200,7 @@ void Infer::AfterProcessing(const std::vector<const char*> class_name, const std
 		{
 			if (results[i] >= 0.5)
 			{
-				predict_class = "X";
+				predict_class = class_name[i];
 				check = true;
 				break;
 			}

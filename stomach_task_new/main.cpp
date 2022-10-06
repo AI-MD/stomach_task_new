@@ -30,17 +30,17 @@ using namespace std;
 cv::Size _imgSize(224, 224);//딥러닝 모델에 들어가는 입력 이미지의 해상도 
 
 
-static wstring  _model = L"densenet_0624_10_224.onnx";// onnx 파일
+static wstring  _model = L"densenet_0823_224.onnx";// onnx 파일
 std::vector<const char*> _className = { "C", "D1","D2", "E", "S1", "S2", "S3", "S4", "S5", "S6" };// label 종류 
 std::vector<float> _cutOff = { 0.98, 0.98, 0.97, 0.98, 0.98, 0.85 }; // 클래스 분류 임계값  S1~S6
-string path = "D:/PACS_raw_data";// 딥러닝 학습에 들어가지 않은 내시경 제품의 이미지.
+string path = "D:/stomach_test_new";// 딥러닝 학습에 들어가지 않은 내시경 제품의 이미지.
 //string path = "Z:/";
-int port = 9999;
+int port = 9991;
 string ip = "127.0.0.1";
 string db_name = "db_0";
 
  bool isCreateTableFlag = true; // 파일 중복을 검증하기 위한 db table 생성 플래그(최초 1회)
- bool isRelatimeFileLoadFlag = true;//실시간으로 파일을 읽어오도록 하는 flag 변수 
+ bool isRealtimeFileLoadFlag = true;//실시간으로 파일을 읽어오도록 하는 flag 변수 
 
 /*
     thread 관련 flag 변수
@@ -52,7 +52,6 @@ static bool _isTaskCompleteFlag = false;
 static bool _isReceiveFlag = true;
 static bool _isJoingFlag = true;
 static bool _isHeartBeatFlag = true;
-
 
 /*
     절차지향.
@@ -68,7 +67,7 @@ void stopChangeFlag();
 int main(int argc, char* argv[] ) {
     
     bool isCreateTableFlag = true; // 파일 중복을 검증하기 위한 db table 생성 플래그(최초 1회)
-    bool isRelatimeFileLoadFlag = true;//실시간으로 파일을 읽어오도록 하는 flag 변수 
+    bool isRealtimeFileLoadFlag = true;//실시간으로 파일을 읽어오도록 하는 flag 변수 
 
     if (argc > 1)
     { 
@@ -76,7 +75,7 @@ int main(int argc, char* argv[] ) {
         port = stoi(argv[2]);
         path = argv[3];
         db_name = argv[4];
-        isRelatimeFileLoadFlag = stoi(argv[5]);
+        isRealtimeFileLoadFlag = stoi(argv[5]);
     }
 
     std::cout << path << std::endl;
@@ -108,34 +107,33 @@ int main(int argc, char* argv[] ) {
             std::cout << "The server is listening\n";
             int result = serverSock.accept_client(clientSock, from);
 
+
             /*
               시간을 확인.
             */
 
-            if (argc > 1 && isRelatimeFileLoadFlag == 0)
+            if (argc > 1 && isRealtimeFileLoadFlag == 0)
             {
-               
                 path;  
             }
             else if(argc >1)
             {
                 path = argv[3] + currentDateTime();
-               
             }
             else
             {
-
                 path;
             }
-           
+            std::cout << path << std::endl;
             /*
                 path 예외처리.
             */
             try {
                 if (!fs::exists(path))
                 {
-                    serverSock.send_message(clientSock, "no folder");
-                    continue;
+                    fs::create_directory(path);
+                    //serverSock.send_message(clientSock, "no folder");
+                    //continue;
                 }
             }
             catch (std::exception& e)
@@ -143,12 +141,13 @@ int main(int argc, char* argv[] ) {
                 serverSock.send_message (clientSock, "no share folder");
                 continue;
             }
+            
 
             // false일 때는 기존에 있던 파일 읽어오도록 구현 
-            ImageLoad imageload = ImageLoad(path, isCreateTableFlag, isRelatimeFileLoadFlag, db_name);
+            ImageLoad imageload = ImageLoad(path, isCreateTableFlag, isRealtimeFileLoadFlag, db_name);
             isCreateTableFlag = false;
 
-            ImagePreprocessing imgPrc = ImagePreprocessing();
+            ImagePreprocessing imgPrc = ImagePreprocessing();   
 
             /*
                클라이언트 서버 접속
@@ -164,6 +163,7 @@ int main(int argc, char* argv[] ) {
                 /*
                   recevie 스레드  while 종료조건  flag 변수
                 */
+                
                 _isReceiveFlag = true;
                 receiveThread = new thread(receiveSocketThread, std::ref(serverSock), std::ref(clientSock));
             }
@@ -232,12 +232,17 @@ std::pair<std::string, string> inference(cv::Mat& img)
 {
 
     cv::resize(img, img, _imgSize);
-    
-    Infer model(true, _model.c_str(), 0);
-    std::vector<float> input_tensor_values = model.Mat2Vec(img, true, true);
    
+
+    Infer model(true, _model.c_str(), 0);
+   
+    
+    std::vector<float> input_tensor_values = model.Mat2Vec(img, true, true);
+    
+  
     //model.PrintInputNode();
     model.SetInputOutputSet();
+   
     model.GetOutput(input_tensor_values, _className.size());
     model.AfterProcessing(_className, _cutOff);
     string pred_class = model.GetPredictClass();
@@ -247,7 +252,6 @@ std::pair<std::string, string> inference(cv::Mat& img)
     else 
         result = make_pair(pred_class, model.getProb());
 
-   
     return result;
 }
 
@@ -279,8 +283,7 @@ void taskWorkingThread(Server_Socket::tcp& serverSock, SOCKET& clientSock, Image
             images = imageload.getImages();
            
         }
-
-        
+       
         while (!_isPauseFlag && images.size() > 0)
         {
             /*
@@ -291,10 +294,16 @@ void taskWorkingThread(Server_Socket::tcp& serverSock, SOCKET& clientSock, Image
             
             string imgPath = images.front();
             cv::Mat img = cv::imread(imgPath, cv::IMREAD_COLOR);
-           
+            if (img.empty())
+            {
+                images.pop();
+                continue;
+            }
             imgPrc.procResultImage(img);
             cv::Mat procMat = imgPrc.getImage();
-            
+
+
+           // imgPrc.showImage(procMat,images.size());
             std::pair<std::string, std::string> results = inference(procMat);
 
             string predictClass = results.first;
@@ -312,7 +321,7 @@ void taskWorkingThread(Server_Socket::tcp& serverSock, SOCKET& clientSock, Image
             string packetString = "data";
             int totalSize = packetString.size() + imgPath.size() + sizeof(int) + predictClass.size() + classProb.size() + 4;
             char* packet = new char[totalSize];
-
+            
             sprintf_s(packet, totalSize, "%s\t%s\t%s\t%s", packetString.c_str(), imgPath.c_str(), predictClass.c_str(), classProb.c_str());
            
             /*
@@ -322,15 +331,20 @@ void taskWorkingThread(Server_Socket::tcp& serverSock, SOCKET& clientSock, Image
             if (_isHeartBeatFlag)
             {
                 serverSock.send_message(clientSock, packet);
-                
+               
                 int find = imgPath.rfind("\\") + 1;
                 string filename = imgPath.substr(find, imgPath.length() - find); //경로에서 파일 이름 추출
+                string filePath = imgPath.substr(0, find-1);
                 
-                imageload.updatecheckflag(filename); // 이미지 추론 결과 db에 반영 
+
+                find = filePath.rfind("\\") + 1;
+                string dirname = filePath.substr(find, filePath.length() - find); //경로에서 파일 이름 추출
+               
+                imageload.updatecheckflag(dirname, filename); // 이미지 추론 결과 db에 반영 
                 images.pop();
 
             }
-           
+         
             delete[] packet;
             
         }
@@ -361,7 +375,6 @@ void ServerCheckPartnerDeathThread(SOCKET& clientSock)
                 std::cout << "dis connected " << std::endl;
                
                 stopChangeFlag();
-
             }
 
             // 상대방 client가 connected에서 갑자기 꺼져 버리면
@@ -428,7 +441,6 @@ void stopChangeFlag()
 }
 void saveImage(string packet)
 {
-
 
 }
 //

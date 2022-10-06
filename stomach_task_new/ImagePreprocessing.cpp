@@ -94,6 +94,7 @@ void ImagePreprocessing::procCropImage()
 }
 void ImagePreprocessing::procResultImage(Mat& img)
 {
+	
 	setResize(img);
 	procPadding();
 	procFitering();
@@ -103,18 +104,18 @@ void ImagePreprocessing::procResultImage(Mat& img)
 	procCropImage();
 }
 
-void ImagePreprocessing::showImage(Mat image)
+void ImagePreprocessing::showImage(Mat image, int i)
 {
 	if (image.empty())
 	{
 		std::cout << "Could not read the image: " << std::endl;
 	}
-	imshow("Display window", image);
+	imwrite(std::to_string(i) +"_test1.jpg", image);
 
-	int k = waitKey(0); // Wait for a keystroke in the window
+	//imshow("test",image);
 
-	if (k == 's')
-	{
-		imwrite("starry_night.png", image);
-	}
+	//waitKey(1000);
+	return;
+	
+
 }

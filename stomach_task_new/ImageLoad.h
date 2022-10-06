@@ -41,7 +41,7 @@ public:
    
     void processing();
     std::queue<std::string> getImages();
-    void updatecheckflag(std::string file_name);
+    void updatecheckflag(std::string dir_name, std::string file_name);
     void close();
     void imageCheck(fs::path dirPath, fs::path filePath);
     std::time_t GetFileWriteTime(const fs::path& filename);

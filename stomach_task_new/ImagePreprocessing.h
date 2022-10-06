@@ -31,6 +31,6 @@ public:
 	void procCanny();
 	void procCropImage();
 	void procResultImage(Mat& img);
-	void showImage(Mat image);
+	void showImage(Mat image, int i);
 };
 

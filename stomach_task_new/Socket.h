@@ -31,7 +31,7 @@ private:
     char* buffer;
     const int buffer_size = 4096*4;
 
-    unsigned char* imgbuffer;
+    
 
 protected:
 
